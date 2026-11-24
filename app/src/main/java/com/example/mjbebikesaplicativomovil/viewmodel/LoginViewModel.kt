@@ -4,6 +4,7 @@ package com.example.mjbebikesaplicativomovil.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.mjbebikesaplicativomovil.data.repository.AuthRepository
+import com.example.mjbebikesaplicativomovil.utils.ApiErrores
 import com.example.mjbebikesaplicativomovil.utils.PasswordUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,13 +40,18 @@ class LoginViewModel(
                 val passwordHash = PasswordUtils.sha256(password)
 
                 // Envía el correo y el hash al backend.
-                val response = authRepository.login(email, passwordHash)
+                val response = authRepository.login(email.lowercase(), passwordHash)
 
                 if (response.isSuccessful && response.body()?.token?.isNotBlank() == true) {
                     _loginSuccess.value = true
                 } else {
-                    _errorMessage.value =
-                        "Credenciales incorrectas o error del servidor (${response.code()})"
+                    _errorMessage.value = when {
+                        response.code() == 401 -> "Correo o contraseña incorrectos"
+                        response.code() == 403 -> "El usuario no está activo"
+                        // La API respondió bien pero sin token: falta 'token' => $token en AuthController.
+                        response.isSuccessful -> "La API no devolvió el token de sesión"
+                        else -> ApiErrores.mensaje(response, "Error del servidor")
+                    }
                 }
 
             } catch (e: Exception) {

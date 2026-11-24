@@ -24,13 +24,29 @@ class AuthRepository(
             )
         )
 
-        // Si Laravel responde correctamente, guarda el JWT.
+        // Si Laravel responde correctamente, guarda el JWT y los datos del usuario
+        // (el rol decide qué opciones ve en el menú).
         if (response.isSuccessful) {
-            response.body()?.token?.let { token ->
-                tokenManager.saveToken(token)
+            val body = response.body()
+            val token: String? = body?.token
+            val usuario = body?.usuario
+
+            if (!token.isNullOrBlank() && usuario != null) {
+                tokenManager.saveSesion(token, usuario)
             }
         }
 
         return response
+    }
+
+    // Cierra la sesión en Laravel y borra los datos guardados en el teléfono.
+    // Aunque la API no responda, la sesión local se borra igual.
+    suspend fun logout() {
+        try {
+            apiService.logout()
+        } catch (e: Exception) {
+            // Sin conexión: igual se cierra la sesión en el teléfono.
+        }
+        tokenManager.clearToken()
     }
 }
